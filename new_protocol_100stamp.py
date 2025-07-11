@@ -1,8 +1,8 @@
 from opentrons import protocol_api
 
 metadata = {
-    "protocolName": "100ul stamp to 3 plates",
-    "description": "100ul stamp to 3 plate",
+    "protocolName": "180ul stamp to 9 plates",
+    "description": "180ul stamp to 9 plate",
     "author": "New API User DAF"
     }
 requirements = {"robotType": "Flex", "apiLevel": "2.24"}
@@ -22,7 +22,7 @@ def run(protocol: protocol_api.ProtocolContext):
     # Load plates dynamically
     plates = [
         protocol.load_labware("corning_96_wellplate_360ul_flat", loc)
-        for loc in plate_locations[:9]  # <-- Change 3 to up to 9 as needed
+        for loc in plate_locations[:1]  # <-- Change 3 to up to 9 as needed
     ]
 
     trash = protocol.load_trash_bin("A3")
@@ -70,8 +70,9 @@ def run(protocol: protocol_api.ProtocolContext):
 
 
    # Collect all destination wells (A1 of each plate)
-    destinations = [plate["A1"] for plate in plates]
+    destinations = [plate["A1"].top() for plate in plates]
 
+    pipette.flow_rate.dispense = 94 # 94ul/second as determined by Leo in Dolan lab
 
     # Distribute 100 µL to each plate’s A1 with 50 µL disposal volume
     pipette.distribute(
@@ -80,7 +81,8 @@ def run(protocol: protocol_api.ProtocolContext):
         dest=destinations,
         disposal_volume=50,
         new_tip= "never",  # use one tip for entire distribute
-        touch_tip=True,
+        blow_out= True,
+        blowout_location= "source well" ,
         keep_last_tip = True
     )
 
