@@ -33,8 +33,17 @@ def run(protocol: protocol_api.ProtocolContext):
     )
 
 
+    # Monkey patch of touch tip global defaults 
+    # Immediately after loading pipette
     
-    
+    def custom_touch_tip(self, location=None, **kwargs):
+        kwargs["radius"] = 0.85
+        kwargs["v_offset"] = -1.0
+        kwargs["speed"] = 15
+        return self.__class__.touch_tip(self, location=location, **kwargs)
+
+    pipette.touch_tip = custom_touch_tip.__get__(pipette)
+        
 
 
     #You may notice that the value of tip_racks is in brackets, indicating that it’s a list. 
@@ -74,6 +83,7 @@ def run(protocol: protocol_api.ProtocolContext):
 
     pipette.flow_rate.dispense = 94 # 94ul/second as determined by Leo in Dolan lab
 
+    pipette.touch_tip
     # Distribute 100 µL to each plate’s A1 with 50 µL disposal volume
     pipette.distribute(
         volume=100,
@@ -82,6 +92,7 @@ def run(protocol: protocol_api.ProtocolContext):
         disposal_volume=50,
         new_tip= "never",  # use one tip for entire distribute
         blow_out= True,
+        touch_tip = True,
         blowout_location= "source well" ,
         keep_last_tip = True
     )
