@@ -16,10 +16,14 @@ def run(protocol: protocol_api.ProtocolContext):
     reservoir = protocol.load_labware("nest_1_reservoir_290ml", location="B1")
     
     
-    plate = protocol.load_labware("corning_96_wellplate_360ul_flat", location="A2")
-    plate2 = protocol.load_labware("corning_96_wellplate_360ul_flat", location="B2")
-    plate3 = protocol.load_labware("corning_96_wellplate_360ul_flat", location="C2")
+    # Define up to 9 locations for 96-well plates
+    plate_locations = ["A2", "B2", "B3", "C1", "C2", "C3", "D1", "D2", "D3"]
 
+    # Load plates dynamically
+    plates = [
+        protocol.load_labware("corning_96_wellplate_360ul_flat", loc)
+        for loc in plate_locations[:3]  # <-- Change 3 to up to 9 as needed
+    ]
 
     trash = protocol.load_trash_bin("A3")
 
@@ -60,23 +64,19 @@ def run(protocol: protocol_api.ProtocolContext):
     # whenever you target a well in row A of a plate with an 8-channel pipette, it will move its topmost tip to row A, lining itself up over the entire column.
     # Thus, when adding the diluent, instead of targeting every well on the plate, you should only target the top row:#
 
-   # Pick up tips all heads
-    pipette.pick_up_tip()
 
-    # Aspirate from Res
-    pipette.aspirate(volume=300, location=reservoir["A1"])
+   # Collect all destination wells (A1 of each plate)
+    destinations = [plate["A1"] for plate in plates]
 
-    # Dispense to plate in first well. 96 head can only access A1 in all labware
-    pipette.dispense(volume=100, location=plate["A1"])
+    # Distribute 100 µL to each plate’s A1 with 50 µL disposal volume
+    pipette.distribute(
+        volume=100,
+        source=reservoir["A1"],
+        dest=destinations,
+        disposal_volume=50,
+        new_tip= "once",  # use one tip for entire distribute
+        blow_out=True,
+        blowout_location= "source well" ,
+        trash = False # optional
+    )
 
-    pipette.dispense(volume=100, location=plate2["A1"])
-    
-    pipette.dispense(volume=100, location=plate3["A1"])
-
-
-
-
-
-
-
-    pipette.return_tip()
