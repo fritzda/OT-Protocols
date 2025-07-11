@@ -16,13 +16,13 @@ def run(protocol: protocol_api.ProtocolContext):
     reservoir = protocol.load_labware("nest_1_reservoir_290ml", location="B1")
     
     
-    # Define up to 9 locations for 96-well plates
-    plate_locations = ["A2", "B2", "B3", "C1", "C2", "C3", "D1", "D2", "D3"]
+    # Define up to 9 locations for 96-well plates, in snake fashion
+    plate_locations = ["A2", "B2", "B3", "C3", "C2", "C1", "D1", "D2", "D3"]
 
     # Load plates dynamically
     plates = [
         protocol.load_labware("corning_96_wellplate_360ul_flat", loc)
-        for loc in plate_locations[:3]  # <-- Change 3 to up to 9 as needed
+        for loc in plate_locations[:9]  # <-- Change 3 to up to 9 as needed
     ]
 
     trash = protocol.load_trash_bin("A3")
@@ -65,8 +65,13 @@ def run(protocol: protocol_api.ProtocolContext):
     # Thus, when adding the diluent, instead of targeting every well on the plate, you should only target the top row:#
 
 
+    # pick up tip
+    pipette.pick_up_tip()
+
+
    # Collect all destination wells (A1 of each plate)
     destinations = [plate["A1"] for plate in plates]
+
 
     # Distribute 100 µL to each plate’s A1 with 50 µL disposal volume
     pipette.distribute(
@@ -74,9 +79,14 @@ def run(protocol: protocol_api.ProtocolContext):
         source=reservoir["A1"],
         dest=destinations,
         disposal_volume=50,
-        new_tip= "once",  # use one tip for entire distribute
-        blow_out=True,
-        blowout_location= "source well" ,
-        trash = False # optional
+        new_tip= "never",  # use one tip for entire distribute
+        touch_tip=True,
+        keep_last_tip = True
     )
 
+    # Touch off droplets
+    pipette.blow_out(reservoir["A1"].bottom(z=1))
+
+
+    #Drop tip
+    pipette.return_tip()
