@@ -1,16 +1,17 @@
 from opentrons import protocol_api
 
 metadata = {
-    "protocolName": "180ul stamp to 9 plates",
-    "description": "180ul stamp to 9 plate",
-    "author": "New API User DAF"
+    "protocolName": "Customizable plate filling",
+    "description": "Customizable volume filling/stamping across n plates",
+    "author": "DAF/VEIU"
     }
 requirements = {"robotType": "Flex", "apiLevel": "2.24"}
 
 def add_parameters(parameters):
     parameters.add_float(
         variable_name="dispense_volume",
-        display_name="Volume to dispense (in µL)",
+        display_name="Dispense volume",
+        description= "Volume (in uls) to dispense into each well.",
         default=100.0,
         minimum=1.0,
         maximum=1000.0
@@ -18,19 +19,60 @@ def add_parameters(parameters):
 
     parameters.add_int(
         variable_name="number_of_plates",
-        display_name="Number of plates to include",
+        display_name="Number of plates",
+        description = "Number of plates you'd like to fill.",
         default=1,
         minimum=1,
         maximum=9  # Adjust depending on how many you support on deck
     )
 
+    parameters.add_float(
+        variable_name="dispense_speed",
+        display_name = "Dispense flowrate",
+        description ="Flow rate of dispense steps (in ul/sec).",
+        default= 94, # 94ul/second as determined by Leo in Dolan lab to protect monolayer
+        minimum=1,
+        maximum=160  
+    )
+
+    parameters.add_float(
+        variable_name="aspirate_speed",
+        display_name = "Aspirate flowrate",
+        description = "Flow rate of aspirate steps (in ul/sec).",
+        default= 160,
+        minimum=1,
+        maximum=160  
+    )
+
+    parameters.add_str(
+        variable_name="blowout_speed_mode",
+        display_name="Blowout speed mode",
+        description="Use dispense speed or custom value for blowout.",
+        default="match_dispense",
+        choices=[
+            {"display_name": "Match dispense speed", "value": "match_dispense"},
+            {"display_name": "Set manually", "value": "manual"}
+        ]
+    )
+
+    parameters.add_float(
+        variable_name="blowout_speed",
+        display_name="Manual blowout flowrate",
+        description="Used only if blowout speed mode is set to 'manual'.",
+        default=94.0,
+        minimum=1,
+        maximum=160
+    )
+
 def run(protocol: protocol_api.ProtocolContext):
 
-    global dispense_volume
+# Set based on runtime params
     dispense_volume = protocol.params.dispense_volume
-
-    global number_of_plates
     number_of_plates = protocol.params.number_of_plates
+    dispense_speed = protocol.params.dispense_speed
+    aspirate_speed = protocol.params.aspirate_speed
+    blowout_speed_mode = protocol.params.blowout_speed_mode
+    manual_blowout_speed = protocol.params.blowout_speed
 
     tips = protocol.load_labware(
         "opentrons_flex_96_filtertiprack_1000ul", location="A1",
@@ -71,35 +113,6 @@ def run(protocol: protocol_api.ProtocolContext):
     pipette.touch_tip = custom_touch_tip.__get__(pipette)
         
 
-
-    #You may notice that the value of tip_racks is in brackets, indicating that it’s a list. 
-    # This serial dilution protocol only uses one tip rack, but some protocols require more tips, 
-    # so you can assign them to a pipette all at once, like tip_racks=[tips1, tips2].
-
-    #Measure out equal amounts of diluent from the reservoir to every well on the plate.
-    #Measure out equal amounts of solution from the reservoir into wells in the first column of the plate.
-    #Move a portion of the combined liquid from column 1 to 2, then from column 2 to 3, and so on all the way to column 12.
-
-
-    ##Single Channel Pippete
-    # left_pipette.transfer(100, reservoir["A1"], plate.wells()) # For every well on the plate, aspirate 100 µL of fluid from column 
-    # #(A)1 of the reservoir and dispense it in the well.
-
-    # for i in range(8):
-    #     row = plate.rows()[i]
-    #     left_pipette.transfer(100, reservoir["A2"], row[0], mix_after=(3, 50)) #mix 3 times with 50 µL of fluid each time.
-    #     #Python lists are zero-indexed, but columns on labware start numbering at 1, 
-    #     #this will be well A1 on the first time through the loop, B1 the second time, and so on
-
-    #     left_pipette.transfer(100, row[:11], row[1:], mix_after=(3, 50)) # So the source is row[:11], from the beginning of the row until its 11th item. 
-    #     #And the destination is row[1:], from index 1 (column 2!) until the end. 
-
-
-    ##8 Channel Pipette
-    # whenever you target a well in row A of a plate with an 8-channel pipette, it will move its topmost tip to row A, lining itself up over the entire column.
-    # Thus, when adding the diluent, instead of targeting every well on the plate, you should only target the top row:#
-
-
     # pick up tip
     pipette.pick_up_tip()
 
@@ -107,7 +120,17 @@ def run(protocol: protocol_api.ProtocolContext):
    # Collect all destination wells (A1 of each plate)
     destinations = [plate["A1"].top() for plate in plates]
 
-    pipette.flow_rate.dispense = 94 # 94ul/second as determined by Leo in Dolan lab
+    pipette.flow_rate.dispense = dispense_speed
+    
+    pipette.flow_rate.aspirate = aspirate_speed
+
+    if blowout_speed_mode == "manual":
+        blowout_speed = manual_blowout_speed
+    else:
+        blowout_speed = dispense_speed
+
+
+    
 
     
     # Distribute 180 µL to each plate’s A1 with 50 µL disposal volume
