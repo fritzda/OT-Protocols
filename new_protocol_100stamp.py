@@ -7,7 +7,31 @@ metadata = {
     }
 requirements = {"robotType": "Flex", "apiLevel": "2.24"}
 
+def add_parameters(parameters):
+    parameters.add_float(
+        variable_name="dispense_volume",
+        display_name="Volume to dispense (in µL)",
+        default=100.0,
+        minimum=1.0,
+        maximum=1000.0
+    )
+
+    parameters.add_int(
+        variable_name="number_of_plates",
+        display_name="Number of plates to include",
+        default=1,
+        minimum=1,
+        maximum=9  # Adjust depending on how many you support on deck
+    )
+
 def run(protocol: protocol_api.ProtocolContext):
+
+    global dispense_volume
+    dispense_volume = protocol.params.dispense_volume
+
+    global number_of_plates
+    number_of_plates = protocol.params.number_of_plates
+
     tips = protocol.load_labware(
         "opentrons_flex_96_filtertiprack_1000ul", location="A1",
         adapter="opentrons_flex_96_tiprack_adapter"
@@ -22,7 +46,7 @@ def run(protocol: protocol_api.ProtocolContext):
     # Load plates dynamically
     plates = [
         protocol.load_labware("corning_96_wellplate_360ul_flat", loc)
-        for loc in plate_locations[:1]  # <-- Change 3 to up to 9 as needed
+        for loc in plate_locations[:number_of_plates]  # <-- Change to up to 9 as needed
     ]
 
     trash = protocol.load_trash_bin("A3")
@@ -35,6 +59,8 @@ def run(protocol: protocol_api.ProtocolContext):
 
     # Monkey patch of touch tip global defaults 
     # Immediately after loading pipette
+    # Override default touch_tip parameters globally for pipette
+
     
     def custom_touch_tip(self, location=None, **kwargs):
         kwargs["radius"] = 0.85
@@ -83,13 +109,13 @@ def run(protocol: protocol_api.ProtocolContext):
 
     pipette.flow_rate.dispense = 94 # 94ul/second as determined by Leo in Dolan lab
 
-    pipette.touch_tip
-    # Distribute 100 µL to each plate’s A1 with 50 µL disposal volume
+    
+    # Distribute 180 µL to each plate’s A1 with 50 µL disposal volume
     pipette.distribute(
-        volume=100,
+        volume= dispense_volume,
         source=reservoir["A1"],
         dest=destinations,
-        disposal_volume=50,
+        disposal_volume = 15,
         new_tip= "never",  # use one tip for entire distribute
         blow_out= True,
         touch_tip = True,
